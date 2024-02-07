@@ -35,4 +35,4 @@ podman run -it \
     $JNB_PORT \
     $IMG /bin/bash
 
-#
+#      -e DISPLAY \

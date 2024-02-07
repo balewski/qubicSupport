@@ -25,6 +25,7 @@ from qiskit import Aer, QuantumCircuit
 #from submit_ibmq_backRun import get_parser, canned_qcrank_inp, harvest_ibmq_backRun_submitMeta
 from toolbox.Util_H5io4 import  write4_data_hdf5, read4_data_hdf5
 #from retrieve_ibmq_backRun import harvest_backRun_result
+from toolbox.Util_QiskitNoisySimu import access_noisySim_backend, config_noise_model_minor, config_noise_model_ibmq
 
 import argparse
 #...!...!..................
@@ -39,6 +40,7 @@ def get_parser(backName="ibmq_qasm_simulator"):
     # .... job running
     parser.add_argument('-n','--numShots',type=int,default=4000, help="shots per circuit")
     parser.add_argument( "-E","--executeCircuit", action='store_true', default=False, help="may take long time, test before use ")
+    parser.add_argument("-N", "--noiseModel",  default='minor',choices=['ideal','minor','ibmq'],help="select pre-canned magnitude of noise")
 
     args = parser.parse_args()
     if 'env'==args.basePath: args.basePath= os.environ['QubiC_dataVault']
@@ -128,6 +130,7 @@ def make_circuit(nCyc):
     qc.measure_all()
     return qc
 
+
 #=================================
 #=================================
 if __name__ == "__main__":
@@ -143,10 +146,21 @@ if __name__ == "__main__":
     
     expMD['payload'].update({'num_qubit':qc.num_qubits , 'num_clbit':qc.num_clbits})
     
-    backend=Aer.get_backend("qasm_simulator")
-    
-    print('M: execution-ready %d circuits  on %s'%(len(qcL),backend.name))                        
-    
+    #1 backend=Aer.get_backend("qasm_simulator")
+    #------ setup noisy backend -----
+    if args.noiseModel=='minor':
+        config_noise_model_minor(expMD)  #  minor-noise
+    elif args.noiseModel=='ibmq':
+        config_noise_model_ibmq(expMD)  # IBMQ-proxy noise
+    else:
+        print('undefined noise model:%s ABORT'%args.noiseModel); exit(99)
+
+    # .... noise is now defined .....
+    backend=access_noisySim_backend(expMD,args.verb)
+
+        
+    print('M: execution-ready %d circuits  on %s'%(len(qcL),backend.name))
+        
     if not args.executeCircuit:
         print('NO execution of circuit, use -E to execute the job')
         exit(0)
@@ -162,7 +176,7 @@ if __name__ == "__main__":
     print(' job done, elaT=%.1f min'%((T1-T0)/60.))
 
     harvest_ibmq_backRun_submitMeta(job,expMD,args)
-    expMD['submit']['runtime']='sampler'  # tmp, test both runtimes?
+    expMD['submit']['runtime']='local simu'  # tmp, test both runtimes?
          
     print('M: got results')
     expD=harvest_backRun_result(job,expMD)
