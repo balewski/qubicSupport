@@ -1,0 +1,15 @@
+name: minor
+comment: very small noise approximates ideal chip
+
+# common setting for all qubits
+T1_us: 20001
+T2_us: 30002 
+#  assert T2<=2*T1
+
+gate_2q:
+  cz: { fidelity: 0.9999, duration_us: 0.40 }
+
+gate_1q:
+  h: { fidelity: 0.9999,  duration_us: 0.032}
+
+read_err: { set0meas0: 0.9999, set1meas1: 0.9999 }

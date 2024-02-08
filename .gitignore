@@ -164,5 +164,6 @@ out/
 .bash_history
 .qiskit/
 .viminfo
-
-
+*.png
+*~
+old/
