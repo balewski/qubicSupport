@@ -51,7 +51,6 @@ def set_2q_gate_error(cf,T1,T2, noise_model, qubits):
         duration=gcf['duration_us'] * 1e-6
         fidelity = gcf['fidelity']
         gate_error = 1 - fidelity
-
    
         pauli_err = errors.pauli_error(
             [('XX', gate_error / 4), ('YY', gate_error / 4),
@@ -66,6 +65,7 @@ def set_2q_gate_error(cf,T1,T2, noise_model, qubits):
         noise_model.add_quantum_error(combined_error, gate, qubits)
         print('  added noise q%s:%s'%(qubits,gate),gcf)
 
+        
 #...!...!....................
 def set_read_error(probs, noise_model,qubit):
     """Configure the noise model based on readout error probabilities."""

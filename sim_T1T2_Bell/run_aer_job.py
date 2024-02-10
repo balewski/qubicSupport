@@ -4,9 +4,8 @@ __email__ = "janstar1122@gmail.com"
 
 '''
 Use Qiskit simulator with NoiseModel() and 
-user definded bit-flip and thermal noise
+user definded bit-flip and thermal noise for gates, T1,T2 for qubits
 use all-to-all connectivity.
-Run simulations w/o submit/retrieve of the job
 Simulations run locally.
 Records meta-data 
 HD5 arrays contain  all outputs
@@ -123,26 +122,21 @@ def harvest_backRun_result(job,md):
         for key in counts:
             ikey=int(key, 2)
             raw_mshot[ic,ikey]=counts[key]
-    print('HBR:raw_mshot\n',raw_mshot)
+    #print('HBR:raw_mshot\n',raw_mshot)
 
     # expectation value for <ZZ>
     
     ev_zz= (raw_mshot[:,0] + raw_mshot[:,3] - raw_mshot[:,1] - raw_mshot[:,2])/nshot
     ev_zzErr= np.sqrt( ev_zz*(1-ev_zz)/nshot)
-    print('HBR: 1-ev_zz  1/sqrt(nshot)=%.3f\n'%(1/np.sqrt(nshot)),1-ev_zz)
-    print('ev_zz err:',ev_zzErr)
+    #print('HBR: 1-ev_zz  1/sqrt(nshot)=%.3f\n'%(1/np.sqrt(nshot)),1-ev_zz)
+    #print('ev_zz err:',ev_zzErr)
 
     #.... compute total variation distance (TVD)
     meas_prob=raw_mshot/nshot
     # Compute the absolute difference and sum across the probability dimension
     abs_diff_sum = np.sum(np.abs(true_prob - meas_prob), axis=1)
     meas_tvd=0.5*abs_diff_sum
-
-    
-    print('true:',true_prob)
-    print('meas:',meas_prob)
-    print('diff:',true_prob-meas_prob)
-    
+   
     print('cycles:',md['payload']['cycles'])
     print('meas TVD:',meas_tvd)
         
@@ -175,7 +169,7 @@ def patch_noise_conf(cf,args):
         cf['read_err']['set1meas1']=vals[1]
 
 #...!...!....................
-def plot_ev_ZZ(md,bigD):
+def M_plot_ev_ZZ(md,bigD):
     X=md['payload']['cycles']
     Y=bigD['ev_zz']
     eY=bigD['ev_zzErr']
@@ -191,7 +185,7 @@ def plot_ev_ZZ(md,bigD):
 
     
 #...!...!....................
-def plot_TVD(md,bigD):
+def M_plot_TVD(md,bigD):
     #.... plot total variation distance (TVD)
     X=md['payload']['cycles']
     Y=bigD['meas_tvd']
@@ -200,8 +194,9 @@ def plot_TVD(md,bigD):
     ax.plot(X, Y, '*')
     ax.set_xlabel('num cycles')
     ax.set_ylabel('TVD')
-    ax.set_title('Bell-state%s,   noisy simu:%s'%(circN,md['short_name']))
+    ax.set_title('%s,   noisy simu:%s'%(circN,md['short_name']))
     ax.set_ylim(-0.02,0.52)
+
     ax.grid()
     outF1=outF.replace('.h5','.tvd.png')
     plt.savefig(outF1); print('M:saved plot',outF1)
@@ -262,7 +257,7 @@ if __name__ == "__main__":
     # .... plotting ....
     if args.plot==False: exit(0)
     import matplotlib.pyplot as plt
-    plot_ev_ZZ(expMD,expD)
-    plot_TVD(expMD,expD)
+    M_plot_ev_ZZ(expMD,expD)
+    M_plot_TVD(expMD,expD)
     plt.show()
 
