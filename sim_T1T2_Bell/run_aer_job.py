@@ -8,8 +8,9 @@ user definded bit-flip and thermal noise
 use all-to-all connectivity.
 Run simulations w/o submit/retrieve of the job
 Simulations run locally.
-Records meta-data containing  job_id
-HD5 arrays contain input images
+Records meta-data 
+HD5 arrays contain  all outputs
+(optional) plot ev(ZZ) vs. cycles
 Dependence: qiskit
 
 '''
@@ -36,7 +37,7 @@ def get_parser(backName="ibmq_qasm_simulator"):
     parser.add_argument("--expName",  default=None,help='(optional)replaces IBMQ jobID assigned during submission by users choice')
     parser.add_argument( "-p","--plot",action='store_true', default=False,help="plot result")  
     # .... RC-setup
-    parser.add_argument('-c',"--cycles",  default=[1,5,11,21,31],type=int,nargs='+', help=" RC cycles, list space separated")
+    parser.add_argument('-c',"--cycles",  default=[1,5,9,15,21,31],type=int,nargs='+', help=" RC cycles, list space separated")
     # .... job running
     parser.add_argument('-n','--numShots',type=int,default=10000, help="shots per circuit")
 
@@ -106,6 +107,8 @@ def harvest_backRun_result(job,md):
 
     qa['status']=jstat
     qa['num_circ']=nCirc
+    nshot=md['submit']['num_shots']
+    true_prob=md['payload']['true_probs']
     nclbit=md['payload']['num_clbit']
     MB=1<<nclbit
     
@@ -122,15 +125,28 @@ def harvest_backRun_result(job,md):
             raw_mshot[ic,ikey]=counts[key]
     print('HBR:raw_mshot\n',raw_mshot)
 
-    # expectation value for ZxZ ZZ
-    nshot=md['submit']['num_shots']
+    # expectation value for <ZZ>
+    
     ev_zz= (raw_mshot[:,0] + raw_mshot[:,3] - raw_mshot[:,1] - raw_mshot[:,2])/nshot
     ev_zzErr= np.sqrt( ev_zz*(1-ev_zz)/nshot)
     print('HBR: 1-ev_zz  1/sqrt(nshot)=%.3f\n'%(1/np.sqrt(nshot)),1-ev_zz)
     print('ev_zz err:',ev_zzErr)
+
+    #.... compute total variation distance (TVD)
+    meas_prob=raw_mshot/nshot
+    # Compute the absolute difference and sum across the probability dimension
+    abs_diff_sum = np.sum(np.abs(true_prob - meas_prob), axis=1)
+    meas_tvd=0.5*abs_diff_sum
+
+    
+    print('true:',true_prob)
+    print('meas:',meas_prob)
+    print('diff:',true_prob-meas_prob)
+    
     print('cycles:',md['payload']['cycles'])
+    print('meas TVD:',meas_tvd)
         
-    bigD={'raw_mshot':raw_mshot, 'ev_zz':ev_zz, 'ev_zzErr':ev_zzErr}
+    bigD={'raw_mshot':raw_mshot, 'ev_zz':ev_zz, 'ev_zzErr':ev_zzErr,'meas_tvd':meas_tvd}
     return bigD
 
 #...!...!....................
@@ -160,18 +176,37 @@ def patch_noise_conf(cf,args):
 
 #...!...!....................
 def plot_ev_ZZ(md,bigD):
-    import matplotlib.pyplot as plt
     X=md['payload']['cycles']
     Y=bigD['ev_zz']
     eY=bigD['ev_zzErr']
     fig, ax = plt.subplots()
     ax.errorbar(X, Y, yerr=eY, fmt='o', capsize=5, capthick=2, ecolor='red', markeredgecolor='black', markeredgewidth=1)
-    ax.set_xlabel('RC cycles')
+    ax.set_xlabel('RB cycles')
     ax.set_ylabel('EV <ZZ>')
-    ax.set_title('Bell w/ RC  job=%s'%md['short_name'])
+    ax.set_title('RB for Bell-state,   noisy simu:%s'%md['short_name'])
     ax.set_ylim(-0.02,1.02)
     ax.grid()
-    return plt
+    outF1=outF.replace('.h5','.ev_zz.png')
+    plt.savefig(outF1); print('M:saved plot',outF1)
+
+    
+#...!...!....................
+def plot_TVD(md,bigD):
+    #.... plot total variation distance (TVD)
+    X=md['payload']['cycles']
+    Y=bigD['meas_tvd']
+    circN=md['payload']['circ_name']
+    fig, ax = plt.subplots()
+    ax.plot(X, Y, '*')
+    ax.set_xlabel('num cycles')
+    ax.set_ylabel('TVD')
+    ax.set_title('Bell-state%s,   noisy simu:%s'%(circN,md['short_name']))
+    ax.set_ylim(-0.02,0.52)
+    ax.grid()
+    outF1=outF.replace('.h5','.tvd.png')
+    plt.savefig(outF1); print('M:saved plot',outF1)
+
+    
     
     
 #=================================
@@ -193,10 +228,12 @@ if __name__ == "__main__":
     qcL=[]
     for ic,nCyc in enumerate(args.cycles):
         qc=make_circuit(nCyc)
-        print('circ=',qc.name); print(qc)
         qcL.append(qc)
+        if ic%2==0: print('circ=',qc.name); print(qc)
     
     expMD['payload'].update({'num_qubit':qc.num_qubits , 'num_clbit':qc.num_clbits})
+    expMD['payload']['true_probs']=[0.5,0.,0.,0.5]
+    expMD['payload']['circ_name']='Bell-state'
     
     backend=Aer.get_backend("qasm_simulator")       
     print('M: execution-ready %d circuits  on %s'%(len(qcL),backend.name))
@@ -224,9 +261,8 @@ if __name__ == "__main__":
 
     # .... plotting ....
     if args.plot==False: exit(0)
-    plt=plot_ev_ZZ(expMD,expD)
-    # Save the plot as a PNG file
-    outF=outF.replace('.h5','.png')
-    plt.savefig(outF); print('M:saved plot',outF)
+    import matplotlib.pyplot as plt
+    plot_ev_ZZ(expMD,expD)
+    plot_TVD(expMD,expD)
     plt.show()
 
