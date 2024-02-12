@@ -1,14 +1,14 @@
 name: QubiC_Aps24
-comment: study of Bell state <ZZ> vs. noise models
+comment: study of Bell state TVD vs. noise models
 
 # common setting for all qubits,  assert T2<=2*T1
-T1_us: 100
-T2_us: 100 
+T1_us: 60
+T2_us: 30 
 
 gate_2q:
-  cz: { fidelity: 0.99, duration_us: 0.40 }
+  cz: { fidelity: 0.99, duration_us: 0.462 }
 
 gate_1q:
-  h: { fidelity: 0.995,  duration_us: 0.032}
+  h: { fidelity: 0.995,  duration_us: 0.064}
 
 read_err: { set0meas0: 0.99, set1meas1: 0.99 }

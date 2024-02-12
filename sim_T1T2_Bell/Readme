@@ -1,0 +1,21 @@
+Simulation of impact of finite T1,T2, readout error  fidelity of Bell-state with repeated CZ gates on X4Y2
+
+Defualt nosie model is in
+noise_conf/qubicAps24.yaml
+
+Run list of circuits for fixed noise model:
+sim_T1T2_Bell$ ./run_aer_job.py -p
+Plot is produced
+
+
+Scan grid if T1-T2 for fixed other params
+a) batch_simu.sh  , takes about 12 min on laptop
+b) merge_experiments.py
+c) ~/sim_T1T2_Bell$ ./pl_T1T2_surf.py
+plot 2D map of TVD (total variational distance)
+   ['true_probs']=[0.5,0.,0.,0.5]
+    meas_prob=raw_mshot/nshot
+    # Compute the absolute difference and sum it across the probability dimension
+    abs_diff_sum = np.sum(np.abs(true_prob - meas_prob), axis=1)
+    meas_tvd=0.5*abs_diff_sum
+

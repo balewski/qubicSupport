@@ -42,10 +42,9 @@ def get_parser(backName="ibmq_qasm_simulator"):
 
     # ..... noise modeling
     parser.add_argument("-N", "--noiseConf",  default='qubicAps24',choices=['minor','qubicAps24'],help="select pre-canned magnitude of noise")
-    parser.add_argument('--noise_T1',type=float,default=None, help="change T1/us")
-    parser.add_argument('--noise_T2',type=float,default=None, help="change T2/us")
-    parser.add_argument('--noise_CZfidel',type=float,default=None, help="change CZ fidelity, range (0,1)")
-    parser.add_argument('--noise_readErr',type=float,default=[],nargs='+', help="readErr:  set0meas0 set1meas1 ,space separated, range (0,1) each")
+    parser.add_argument('--noise_T1T2',type=float,nargs='+',default=[], help="change T1/us and T2/us")
+    parser.add_argument('--noise_czFidel',type=float,default=None, help="change CZ fidelity, range (0,1)")
+    parser.add_argument('--noise_readFidel',type=float,default=[],nargs='+', help="readout fidelity:  set0meas0 set1meas1 ,space separated, range (0,1) each")
 
     
     args = parser.parse_args()
@@ -133,7 +132,7 @@ def harvest_backRun_result(job,md):
 
     #.... compute total variation distance (TVD)
     meas_prob=raw_mshot/nshot
-    # Compute the absolute difference and sum across the probability dimension
+    # Compute the absolute difference and sum it across the probability dimension
     abs_diff_sum = np.sum(np.abs(true_prob - meas_prob), axis=1)
     meas_tvd=0.5*abs_diff_sum
    
@@ -156,17 +155,22 @@ def make_circuit(nCyc):
 
 #...!...!....................
 def patch_noise_conf(cf,args):
-    if args.noise_T1!=None: cf['T1_us']=args.noise_T1
-    if args.noise_T2!=None: cf['T2_us']=args.noise_T2
-    if args.noise_CZfidel!=None: cf['gate_2q']['cz']['fidelity']=args.noise_CZfidel
-    nErr=len(args.noise_readErr)
-    assert nErr==0 or nErr==2
-    if nErr==2:
-        vals=args.noise_readErr
-        assert min(vals) >0
-        assert max(vals) <1
-        cf['read_err']['set0meas0']=vals[0]
-        cf['read_err']['set1meas1']=vals[1]
+    TT=args.noise_T1T2
+    assert len(TT) in [0,2]
+    if len(TT)==2:
+        assert TT[1]<=2*TT[0]
+        assert TT[1]>0
+        cf['T1_us']=TT[0]; cf['T2_us']=TT[1];
+  
+    if args.noise_czFidel!=None: cf['gate_2q']['cz']['fidelity']=args.noise_czFidel
+
+    RR=args.noise_readFidel
+    assert len(RR) in [0,2]
+    if len(RR)==2:
+        assert min(RR) >0
+        assert max(RR) <1
+        cf['read_err']['set0meas0']=RR[0]
+        cf['read_err']['set1meas1']=RR[1]
 
 #...!...!....................
 def M_plot_ev_ZZ(md,bigD):
@@ -201,9 +205,7 @@ def M_plot_TVD(md,bigD):
     outF1=outF.replace('.h5','.tvd.png')
     plt.savefig(outF1); print('M:saved plot',outF1)
 
-    
-    
-    
+        
 #=================================
 #        M A I N 
 #=================================
@@ -224,7 +226,7 @@ if __name__ == "__main__":
     for ic,nCyc in enumerate(args.cycles):
         qc=make_circuit(nCyc)
         qcL.append(qc)
-        if ic%2==0: print('circ=',qc.name); print(qc)
+        if ic%2==0 or ic<3: print('circ=',qc.name); print(qc)
     
     expMD['payload'].update({'num_qubit':qc.num_qubits , 'num_clbit':qc.num_clbits})
     expMD['payload']['true_probs']=[0.5,0.,0.,0.5]
@@ -255,9 +257,11 @@ if __name__ == "__main__":
     print('M:done')
 
     # .... plotting ....
-    if args.plot==False: exit(0)
+    if args.plot==False:
+        print('M: plots NOT produced, add -p')
+        exit(0)
     import matplotlib.pyplot as plt
-    M_plot_ev_ZZ(expMD,expD)
+    #M_plot_ev_ZZ(expMD,expD)
     M_plot_TVD(expMD,expD)
     plt.show()
 
